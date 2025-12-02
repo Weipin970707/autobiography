@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>數學挑戰</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #111;
+        color: #fff;
+        text-align: center;
+        margin: 0;
+        padding: 0;
+    }
+
+    h1 {
+        margin-top: 40px;
+        color: #00eaff;
+    }
+
+    .stats {
+        font-size: 20px;
+        margin-top: 10px;
+    }
+
+    .question-box {
+        margin-top: 30px;
+        background: #222;
+        display: inline-block;
+        padding: 20px 40px;
+        border-radius: 12px;
+        box-shadow: 0 0 15px #00eaff;
+        font-size: 30px;
+    }
+
+    input {
+        margin-top: 20px;
+        font-size: 24px;
+        padding: 5px 10px;
+        width: 120px;
+        text-align: center;
+    }
+
+    button {
+        margin-top: 20px;
+        font-size: 20px;
+        padding: 10px 25px;
+        border: none;
+        background: #00eaff;
+        color: black;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+    #result {
+        margin-top: 20px;
+        font-size: 26px;
+        height: 30px;
+    }
+
+    .game-over {
+        font-size: 35px;
+        margin-top: 40px;
+        color: #ff4545;
+    }
+
+    #timer {
+        font-size: 28px;
+        margin-top: 15px;
+        color: #ffdb4d;
+    }
+</style>
+</head>
+<body>
+
+<h1>🔥 高難度數學挑戰 🔥</h1>
+
+<div class="stats">
+    <div>分數：<span id="score">0</span></div>
+    <div>生命：<span id="life">3</span></div>
+</div>
+
+<div id="timer">時間：10 秒</div>
+
+<div class="question-box">
+    <span id="question">按開始開始挑戰！</span>
+</div>
+
+<br>
+<input type="number" id="answer" disabled />
+<br>
+<button onclick="startGame()">開始遊戲</button>
+<button onclick="submitAnswer()">提交答案</button>
+
+<div id="result"></div>
+
+<script>
+    let score = 0;
+    let life = 3;
+    let timer;
+    let timeLeft = 10;
+    let currentAnswer = 0;
+    let difficulty = 1; // 越玩越難
+
+    function startGame() {
+        score = 0;
+        life = 3;
+        difficulty = 1;
+        document.getElementById("score").textContent = score;
+        document.getElementById("life").textContent = life;
+        document.getElementById("answer").disabled = false;
+
+        newQuestion();
+    }
+
+    function randomInt(max) {
+        return Math.floor(Math.random() * max) + 1;
+    }
+
+    function newQuestion() {
+        // 隨著分數，難度提高
+        difficulty = Math.floor(score / 5) + 1;
+        let maxNum = 10 + difficulty * 10;
+
+        let a = randomInt(maxNum);
+        let b = randomInt(maxNum);
+        
+        const ops = ["+", "-", "×", "÷"];
+        let op = ops[Math.floor(Math.random() * ops.length)];
+
+        if (op === "÷") {
+            b = randomInt(10);
+            a = b * randomInt(10); // 讓除法整除
+        }
+
+        let question = `${a} ${op} ${b}`;
+
+        switch (op) {
+            case "+": currentAnswer = a + b; break;
+            case "-": currentAnswer = a - b; break;
+            case "×": currentAnswer = a * b; break;
+            case "÷": currentAnswer = a / b; break;
+        }
+
+        document.getElementById("question").textContent = question;
+        document.getElementById("answer").value = "";
+        
+        resetTimer();
+    }
+
+    function resetTimer() {
+        clearInterval(timer);
+        timeLeft = 10;
+        document.getElementById("timer").textContent = `時間：${timeLeft} 秒`;
+
+        timer = setInterval(() => {
+            timeLeft--;
+            document.getElementById("timer").textContent = `時間：${timeLeft} 秒`;
+
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                wrongAnswer("時間到！");
+            }
+        }, 1000);
+    }
+
+    function submitAnswer() {
+        const ans = Number(document.getElementById("answer").value);
+
+        if (ans === currentAnswer) {
+            answerCorrect();
+        } else {
+            wrongAnswer("答錯了！");
+        }
+    }
+
+    function answerCorrect() {
+        score++;
+        document.getElementById("score").textContent = score;
+        document.getElementById("result").style.color = "#00ff88";
+        document.getElementById("result").textContent = "✔ 正確！";
+        newQuestion();
+    }
+
+    function wrongAnswer(msg) {
+        life--;
+        document.getElementById("life").textContent = life;
+        document.getElementById("result").style.color = "#ff4545";
+        document.getElementById("result").textContent = `✘ ${msg}`;
+
+        if (life <= 0) {
+            gameOver();
+        } else {
+            newQuestion();
+        }
+    }
+
+    function gameOver() {
+        clearInterval(timer);
+        document.getElementById("question").textContent = "遊戲結束！按開始再玩一次！";
+        document.getElementById("result").innerHTML =
+            `<span class="game-over">你的最終分數：${score}</span>`;
+        document.getElementById("answer").disabled = true;
+    }
+</script>
+
+</body>
+</html>
