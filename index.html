@@ -1,83 +1,191 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <title>點擊怪物小遊戲</title>
-  <style>
-    body {
-      text-align: center;
-      font-family: Arial, sans-serif;
-      background-color: #f0f8ff;
-    }
-    #gameArea {
-      width: 400px;
-      height: 300px;
-      border: 2px solid #333;
-      margin: 20px auto;
-      position: relative;
-      background-color: white;
-    }
-    #monster {
-      width: 50px;
-      height: 50px;
-      background-color: red;
-      border-radius: 50%;
-      position: absolute;
-      cursor: pointer;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Ultimate Space Shooter</title>
+<style>
+body{
+  margin:0;
+  height:100vh;
+  background:radial-gradient(circle at top,#1e3c72,#0b1023);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-family:"Segoe UI",Arial;
+  color:white;
+}
+#box{
+  padding:16px;
+  border-radius:16px;
+  background:linear-gradient(#111,#000);
+  box-shadow:0 0 40px rgba(0,200,255,.35);
+}
+canvas{
+  background:linear-gradient(#020824,#000);
+  border-radius:12px;
+  display:block;
+}
+.title{text-align:center;letter-spacing:2px;}
+.tip{text-align:center;font-size:14px;opacity:.8;}
+</style>
 </head>
+
 <body>
+<div id="box">
+  <h2 class="title">🚀 Ultimate Space Shooter</h2>
+  <canvas id="game" width="440" height="560"></canvas>
+  <div class="tip">← → 移動　空白鍵射擊　點擊開始</div>
+</div>
 
-  <h1>🎯 點擊紅點</h1>
-  <p>分數：<span id="score">0</span></p>
-  <p>時間：<span id="time">10</span> 秒</p>
+<script>
+const c=document.getElementById("game");
+const ctx=c.getContext("2d");
 
-  <div id="gameArea">
-    <div id="monster"></div>
-  </div>
+/* ========= 音效 ========= */
+const AC=new (window.AudioContext||window.webkitAudioContext)();
+function s(freq,d=0.12,type="sawtooth",v=0.08){
+  const o=AC.createOscillator(),g=AC.createGain();
+  o.type=type;o.frequency.value=freq;
+  g.gain.value=v;o.connect(g);g.connect(AC.destination);
+  o.start();o.stop(AC.currentTime+d);
+}
 
-  <button onclick="startGame()">開始遊戲</button>
+/* ========= 狀態 ========= */
+let started=false,keys={},score=0;
+document.onkeydown=e=>keys[e.code]=true;
+document.onkeyup=e=>keys[e.code]=false;
+c.onclick=()=>{AC.resume();started=true};
 
-  <script>
-    let score = 0;
-    let timeLeft = 10;
-    let timer;
-    const monster = document.getElementById("monster");
-    const gameArea = document.getElementById("gameArea");
+/* ========= 星空背景 ========= */
+let stars=[...Array(80)].map(()=>({
+  x:Math.random()*440,y:Math.random()*560,s:1+Math.random()*2
+}));
 
-    function randomPosition() {
-      const x = Math.random() * (gameArea.clientWidth - 50);
-      const y = Math.random() * (gameArea.clientHeight - 50);
-      monster.style.left = x + "px";
-      monster.style.top = y + "px";
-    }
+/* ========= 玩家 ========= */
+const player={
+  x:200,y:480,w:44,h:44,speed:6,lives:3,cool:0
+};
 
-    monster.onclick = function () {
-      score++;
-      document.getElementById("score").innerText = score;
-      randomPosition();
-    };
+/* ========= 物件 ========= */
+let bullets=[],enemies=[],particles=[];
 
-    function startGame() {
-      score = 0;
-      timeLeft = 10;
-      document.getElementById("score").innerText = score;
-      document.getElementById("time").innerText = timeLeft;
-      randomPosition();
+/* ========= 生成 ========= */
+function spawnEnemy(){
+  enemies.push({
+    x:Math.random()*380,y:-40,w:44,h:34,hp:1,speed:2
+  });
+}
+setInterval(()=>started&&spawnEnemy(),900);
 
-      clearInterval(timer);
-      timer = setInterval(() => {
-        timeLeft--;
-        document.getElementById("time").innerText = timeLeft;
+/* ========= 射擊 ========= */
+function shoot(){
+  if(player.cool<=0){
+    bullets.push({x:player.x+20,y:player.y});
+    s(600);
+    player.cool=15;
+  }
+}
 
-        if (timeLeft <= 0) {
-          clearInterval(timer);
-          alert("遊戲結束！你的分數是：" + score);
-        }
-      }, 1000);
-    }
-  </script>
+/* ========= 爆炸特效 ========= */
+function explode(x,y,color){
+  s(140,0.2,"triangle",0.15);
+  for(let i=0;i<18;i++){
+    particles.push({
+      x,y,
+      vx:(Math.random()-.5)*6,
+      vy:(Math.random()-.5)*6,
+      life:30,
+      c:color
+    });
+  }
+}
 
+/* ========= 更新 ========= */
+function update(){
+  if(!started) return;
+
+  if(keys.ArrowLeft&&player.x>0)player.x-=player.speed;
+  if(keys.ArrowRight&&player.x<396)player.x+=player.speed;
+  if(keys.Space) shoot();
+  if(player.cool>0)player.cool--;
+
+  bullets.forEach(b=>b.y-=9);
+  enemies.forEach(e=>e.y+=e.speed);
+
+  bullets=bullets.filter(b=>{
+    return !enemies.some(e=>{
+      if(b.x<e.x+e.w&&b.x+6>e.x&&b.y<e.y+e.h&&b.y+14>e.y){
+        e.hp--; explode(e.x+e.w/2,e.y+e.h/2,"orange");
+        score++; return true;
+      }
+    });
+  });
+
+  enemies=enemies.filter(e=>e.hp>0&&e.y<600);
+
+  particles=particles.filter(p=>{
+    p.x+=p.vx;p.y+=p.vy;p.life--;
+    return p.life>0;
+  });
+
+  stars.forEach(st=>{st.y+=st.s;if(st.y>560)st.y=0;});
+}
+
+/* ========= 繪製 ========= */
+function drawPlayer(){
+  const g=ctx.createLinearGradient(player.x,player.y,player.x,player.y+44);
+  g.addColorStop(0,"#00ffe0");g.addColorStop(1,"#0080ff");
+  ctx.fillStyle=g;
+  ctx.beginPath();
+  ctx.moveTo(player.x+22,player.y);
+  ctx.lineTo(player.x+44,player.y+44);
+  ctx.lineTo(player.x+22,player.y+34);
+  ctx.lineTo(player.x,player.y+44);
+  ctx.closePath();ctx.fill();
+
+  ctx.fillStyle="rgba(0,255,255,.7)";
+  ctx.fillRect(player.x+18,player.y+44,8,10);
+}
+
+function draw(){
+  ctx.clearRect(0,0,440,560);
+
+  ctx.fillStyle="white";
+  stars.forEach(st=>ctx.fillRect(st.x,st.y,st.s,st.s));
+
+  if(!started){
+    ctx.font="26px Arial";
+    ctx.fillText("點擊開始遊戲",120,280);
+    return;
+  }
+
+  drawPlayer();
+
+  ctx.fillStyle="yellow";
+  bullets.forEach(b=>{
+    ctx.shadowBlur=10;ctx.shadowColor="yellow";
+    ctx.fillRect(b.x,b.y,6,14);
+  });
+  ctx.shadowBlur=0;
+
+  ctx.fillStyle="red";
+  enemies.forEach(e=>ctx.fillRect(e.x,e.y,e.w,e.h));
+
+  particles.forEach(p=>{
+    ctx.fillStyle=p.c;
+    ctx.globalAlpha=p.life/30;
+    ctx.fillRect(p.x,p.y,4,4);
+    ctx.globalAlpha=1;
+  });
+
+  ctx.fillStyle="white";
+  ctx.fillText("Score: "+score,10,20);
+  ctx.fillText("❤️ ".repeat(player.lives),320,20);
+}
+
+/* ========= 迴圈 ========= */
+function loop(){update();draw();requestAnimationFrame(loop);}
+loop();
+</script>
 </body>
 </html>
